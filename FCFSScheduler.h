@@ -39,29 +39,47 @@ public:
     void calculateMetrics() {
         if (processes.empty()) return;
 
-        // Sort processes by arrival time (Bubble Sort)
-        for(size_t i = 0; i < processes.size() - 1; i++) {
-            for(size_t j = i + 1; j < processes.size(); j++) {
-                if(processes[j].arrivalTime < processes[i].arrivalTime) {
-                    std::swap(processes[j], processes[i]);
-                }
+        // Create a vector of valid processes for calculation
+        std::vector<Process*> validProcesses;
+        for (auto& process : processes) {
+            if (process.arrivalTime >= 0 && process.burstTime > 0) {
+                validProcesses.push_back(&process);
             }
         }
 
-        // Initialize currentTime with the first process's arrival time
-        int currentTime = processes[0].arrivalTime;
+        if (validProcesses.empty()) return;
 
-        for (auto& process : processes) {
-            if (currentTime < process.arrivalTime) {
-                currentTime = process.arrivalTime;
+        // Sort valid processes by arrival time
+        std::sort(validProcesses.begin(), validProcesses.end(), 
+            [](const Process* a, const Process* b) {
+                return a->arrivalTime < b->arrivalTime;
+            });
+
+        int currentTime = validProcesses[0]->arrivalTime;
+
+        for (auto* process : validProcesses) {
+            // If there's a gap between current time and next process arrival,
+            // move current time to the next process arrival
+            if (currentTime < process->arrivalTime) {
+                currentTime = process->arrivalTime;
             }
 
-            process.responseTime = currentTime - process.arrivalTime;
-            process.waitingTime = process.responseTime;
-            process.completionTime = currentTime + process.burstTime;
-            process.turnAroundTime = process.completionTime - process.arrivalTime;
+            process->responseTime = currentTime - process->arrivalTime;
+            process->waitingTime = process->responseTime;
+            process->completionTime = currentTime + process->burstTime;
+            process->turnAroundTime = process->completionTime - process->arrivalTime;
 
-            currentTime += process.burstTime;
+            currentTime += process->burstTime;
+        }
+
+        // Reset metrics for invalid processes
+        for (auto& process : processes) {
+            if (process.arrivalTime < 0 || process.burstTime <= 0) {
+                process.responseTime = 0;
+                process.waitingTime = 0;
+                process.completionTime = 0;
+                process.turnAroundTime = 0;
+            }
         }
     }
 
@@ -71,28 +89,52 @@ public:
         float avgWaitingTime = 0;
         float avgTurnaroundTime = 0;
         float avgResponseTime = 0;
+        int validProcesses = 0;
 
+        // Only calculate averages for valid processes
         for (const auto& process : processes) {
-            avgWaitingTime += process.waitingTime;
-            avgTurnaroundTime += process.turnAroundTime;
-            avgResponseTime += process.responseTime;
+            if (process.arrivalTime >= 0 && process.burstTime > 0) {
+                avgWaitingTime += process.waitingTime;
+                avgTurnaroundTime += process.turnAroundTime;
+                avgResponseTime += process.responseTime;
+                validProcesses++;
+            }
         }
 
         std::stringstream ss;
         ss << "Results:\r\n\r\n";
-        ss << "Average Waiting Time: " << avgWaitingTime/processes.size() << "\r\n";
-        ss << "Average Turnaround Time: " << avgTurnaroundTime/processes.size() << "\r\n";
-        ss << "Average Response Time: " << avgResponseTime/processes.size() << "\r\n\r\n";
+        
+        if (validProcesses > 0) {
+            ss << "Average Waiting Time: " << avgWaitingTime/validProcesses << "\r\n";
+            ss << "Average Turnaround Time: " << avgTurnaroundTime/validProcesses << "\r\n";
+            ss << "Average Response Time: " << avgResponseTime/validProcesses << "\r\n\r\n";
+        } else {
+            ss << "No valid processes for calculation.\r\n\r\n";
+        }
         
         ss << "Process Details:\r\n";
         for (const auto& process : processes) {
             ss << "Process " << process.processName << ":\r\n";
-            ss << "Arrival Time: " << process.arrivalTime << "\r\n";
-            ss << "Burst Time: " << process.burstTime << "\r\n";
-            ss << "Completion Time: " << process.completionTime << "\r\n";
-            ss << "Waiting Time: " << process.waitingTime << "\r\n";
-            ss << "Turnaround Time: " << process.turnAroundTime << "\r\n";
-            ss << "Response Time: " << process.responseTime << "\r\n\r\n";
+            
+            // Check if process has invalid values
+            if (process.arrivalTime < 0 || process.burstTime <= 0) {
+                ss << "Status: INVALID INPUT\r\n";
+                ss << "Arrival Time: " << process.arrivalTime;
+                if (process.arrivalTime < 0) ss << " (cannot be negative)";
+                ss << "\r\n";
+                ss << "Burst Time: " << process.burstTime;
+                if (process.burstTime <= 0) ss << " (must be positive)";
+                ss << "\r\n";
+                ss << "Cannot calculate metrics for invalid input.\r\n\r\n";
+            } else {
+                ss << "Status: VALID\r\n";
+                ss << "Arrival Time: " << process.arrivalTime << "\r\n";
+                ss << "Burst Time: " << process.burstTime << "\r\n";
+                ss << "Completion Time: " << process.completionTime << "\r\n";
+                ss << "Waiting Time: " << process.waitingTime << "\r\n";
+                ss << "Turnaround Time: " << process.turnAroundTime << "\r\n";
+                ss << "Response Time: " << process.responseTime << "\r\n\r\n";
+            }
         }
 
         return ss.str();

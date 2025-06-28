@@ -7,13 +7,16 @@
 #include "FCFSScheduler.h"
 
 // Global variables for GUI
-HWND hwndName, hwndArrival, hwndBurst;    // Input fields
-HWND hwndAdd;                             // Add button
-HWND hwndCalculate;                       // Calculate button
-HWND hwndResult;                          // Result text area
-HWND hwndGantt;                          // Gantt chart area
-UINT_PTR animationTimer = 0;              // Timer for animations
-FCFSScheduler scheduler;                  // FCFS Scheduler instance
+HWND hwndName = NULL;
+HWND hwndArrival = NULL;
+HWND hwndBurst = NULL;
+HWND hwndAdd = NULL;
+HWND hwndCalculate = NULL;
+HWND hwndClear = NULL;
+HWND hwndResult = NULL;
+HWND hwndGantt = NULL;
+UINT_PTR animationTimer = 0;
+FCFSScheduler scheduler;
 
 // Helper function to create enhanced color for hover effect
 COLORREF GetEnhancedColor(COLORREF baseColor, bool isHovered) {
@@ -249,9 +252,14 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
                 120, 100, 100, 30, hwnd, (HMENU)2, NULL, NULL);
 
+            // Add Clear All button
+            hwndClear = CreateWindowW(L"BUTTON", L"Clear All", 
+                WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
+                10, 140, 210, 30, hwnd, (HMENU)3, NULL, NULL);
+
             hwndResult = CreateWindowW(L"EDIT", L"", 
                 WS_VISIBLE | WS_CHILD | WS_BORDER | ES_MULTILINE | ES_READONLY | WS_VSCROLL,
-                10, 140, 210, 300, hwnd, NULL, NULL, NULL);
+                10, 180, 210, 260, hwnd, NULL, NULL, NULL);
 
             // Register Gantt chart window class
             WNDCLASSEXW wcGantt = {0};
@@ -282,24 +290,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                     int arrivalTime = atoi(arrival);
                     int burstTime = atoi(burst);
                     
-                    std::string errorMsg;
-                    if (arrivalTime < 0) {
-                        errorMsg = "Error: Arrival Time cannot be negative!\nPlease enter a non-negative number.";
-                        SetWindowText(hwndArrival, "");
-                        SetFocus(hwndArrival);
-                    }
-                    else if (burstTime <= 0) {
-                        errorMsg = "Error: Burst Time must be positive!\nPlease enter a positive number.";
-                        SetWindowText(hwndBurst, "");
-                        SetFocus(hwndBurst);
-                    }
-                    
-                    if (!errorMsg.empty()) {
-                        MessageBoxA(hwnd, errorMsg.c_str(), "Input Error", MB_ICONERROR | MB_OK);
-                        SetWindowText(hwndResult, errorMsg.c_str());
-                        return 0;
-                    }
-
+                    // Always add the process, even with invalid values
                     if (scheduler.addProcess(name, arrivalTime, burstTime)) {
                         // Clear input fields
                         SetWindowText(hwndName, "");
@@ -311,6 +302,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                             std::to_string(scheduler.getProcesses().size()) + 
                             "/" + std::to_string(scheduler.getMaxProcesses());
                         SetWindowText(hwndResult, status.c_str());
+                        
+                        // Redraw Gantt chart
+                        InvalidateRect(hwndGantt, NULL, TRUE);
                     }
                 }
             }
@@ -322,6 +316,18 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                     }
                     SetWindowText(hwndResult, scheduler.getResultSummary().c_str());
                     InvalidateRect(hwndGantt, NULL, TRUE);
+                }
+            }
+            else if (LOWORD(wParam) == 3) {  // Clear All button
+                if (!scheduler.getProcesses().empty()) {
+                    if (MessageBoxA(hwnd, "Are you sure you want to clear all processes?", 
+                        "Confirm", MB_YESNO | MB_ICONQUESTION) == IDYES) {
+                        scheduler.clearProcesses();
+                        SetWindowText(hwndResult, "All processes cleared.");
+                        InvalidateRect(hwndGantt, NULL, TRUE);
+                    }
+                } else {
+                    MessageBoxA(hwnd, "No processes to clear!", "Info", MB_OK | MB_ICONINFORMATION);
                 }
             }
             break;
