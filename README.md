@@ -25,7 +25,7 @@ A Windows GUI application that simulates the First-Come-First-Serve (FCFS) CPU s
 1. Clone the repository:
 
 ```bash
-git clone [repository-url]
+git clone https://github.com/Khoa-Dam/fcfs_algorithm
 ```
 
 2. Run `run.bat` to compile and launch the application:
